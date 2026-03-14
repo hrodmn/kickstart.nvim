@@ -597,12 +597,17 @@ require('lazy').setup({
       --    :Mason
       --
       -- You can press `g?` for help in this menu.
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'lua_ls', -- Lua Language server
+      --
+      -- NOTE: Mason package names often differ from lspconfig server names
+      -- (e.g., 'rust-analyzer' in Mason vs 'rust_analyzer' in lspconfig)
+      local ensure_installed = {
+        'lua-language-server', -- Lua Language server (lspconfig: lua_ls)
         'stylua', -- Used to format Lua code
         'markdownlint-cli2', -- Used to format markdown files
-      })
+        'rust-analyzer', -- Rust Language server (lspconfig: rust_analyzer)
+        'typescript-language-server', -- TypeScript/JavaScript Language server (lspconfig: ts_ls)
+        'ruff', -- Python linter/formatter
+      }
 
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -868,12 +873,24 @@ require('lazy').setup({
 
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    lazy = false,
+    build = ':TSUpdate',
     config = function()
-      local filetypes = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
-      require('nvim-treesitter').install(filetypes)
+      -- Install core parsers
+      require('nvim-treesitter').install { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+      -- Enable treesitter highlighting for all filetypes
       vim.api.nvim_create_autocmd('FileType', {
-        pattern = filetypes,
-        callback = function() vim.treesitter.start() end,
+        callback = function(args)
+          pcall(vim.treesitter.start, args.buf)
+        end,
+      })
+      -- Enable treesitter indentation (experimental), disabled for ruby
+      vim.api.nvim_create_autocmd('FileType', {
+        callback = function(args)
+          if vim.bo[args.buf].filetype ~= 'ruby' then
+            vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+          end
+        end,
       })
     end,
   },
@@ -1048,6 +1065,13 @@ require('lazy').setup({
       'brenoprata10/nvim-highlight-colors',
       lazy = false,
       config = function() require('nvim-highlight-colors').setup {} end,
+    },
+    {
+      'iamcco/markdown-preview.nvim',
+      cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+      build = 'cd app && yarn install',
+      init = function() vim.g.mkdp_filetypes = { 'markdown' } end,
+      ft = { 'markdown' },
     },
   },
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
